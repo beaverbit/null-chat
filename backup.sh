@@ -13,7 +13,7 @@ mkdir -p "$BACKUP_DIR"
 echo "Iniciando backup em $DATE..."
 
 # 1. Dump do banco
-# Usa a senha do .env (você pode exportar ela ou colocar direto aqui)
+# Usar a senha do .env (posso exportar ela ou colocar direto aqui)
 export PGPASSWORD="postgres"
 pg_dump -U "$DB_USER" -h localhost -d "$DB_NAME" -F c -f "$BACKUP_DIR/db_$DATE.dump"
 
