@@ -55,11 +55,6 @@ const postLimiter = rateLimit({
   message: { error: 'Calma aí, muito post em pouco tempo.' }
 });
 
-const reportLimiter = rateLimit({
-  windowMs: 60 * 1000, max: 5,
-  message: { error: 'Muitas denúncias em pouco tempo.' }
-});
-
 function anonIdFromId(id) {
   return crypto.createHash('sha256').update(String(id)).digest('hex').slice(0, 6);
 }
@@ -83,8 +78,6 @@ function deleteFileSafe(filename) {
   const filePath = path.join(UPLOAD_DIR, filename);
   fs.unlink(filePath, (err) => { if (err) console.error(`Erro ao deletar: ${filename}`); });
 }
-
-// --- Rotas ---
 
 app.get('/api/boards/:board', async (req, res) => {
   const board = req.params.board.slice(0, 16);
@@ -126,11 +119,16 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
   const replyTo = req.body.replyTo ? parseInt(req.body.replyTo, 10) : null;
   const isSage = req.body.sage === 'true';
   
-  const content = sanitizeHtml(rawContent, { allowedTags: [], allowedAttributes: {} });
+  let content = sanitizeHtml(rawContent, { allowedTags: [], allowedAttributes: {} });
+
+  // --- CORREÇÃO AQUI ---
+  // Desfaz o escape de >, < e & que o navegador manda às vezes
+  content = content.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+  // ---------------------
 
   if (!content.trim() && !req.file) return res.status(400).json({ error: 'Post vazio' });
 
-  if (req.file && req.file.mimetype.startsWith('image/')) {
+  if (req.file && req.file.mimetype.startsWith('image/') && req.file.mimetype !== 'image/gif') {
     try {
       const filePath = path.join(UPLOAD_DIR, req.file.filename);
       const optimizedPath = path.join(UPLOAD_DIR, `opt_${req.file.filename}.webp`);
@@ -159,7 +157,13 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
   }
 
   const mediaPath = req.file ? req.file.filename : null;
-  const mediaType = req.file ? (req.file.mimetype.startsWith('video/') ? 'video' : 'image') : null;
+  let mediaType = null;
+  if (req.file) {
+    if (req.file.mimetype.startsWith('video/')) mediaType = 'video';
+    else if (req.file.mimetype === 'application/pdf') mediaType = 'pdf';
+    else mediaType = 'image';
+  }
+  
   const deleteToken = crypto.randomUUID();
 
   try {
@@ -214,7 +218,7 @@ app.delete('/api/posts/:id', async (req, res) => {
   }
 });
 
-// --- Rota de Reportar ---
+const reportLimiter = rateLimit({ windowMs: 60 * 1000, max: 5 });
 app.post('/api/posts/:id/report', reportLimiter, async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const reason = sanitizeHtml((req.body.reason || '').toString().slice(0, 500), { allowedTags: [] });
@@ -233,7 +237,6 @@ app.post('/api/posts/:id/report', reportLimiter, async (req, res) => {
   }
 });
 
-// --- Rota de Ver Reports (Admin) ---
 app.get('/api/reports', async (req, res) => {
   const adminPass = req.headers['x-admin-password'];
   if (adminPass !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Não autorizado.' });
