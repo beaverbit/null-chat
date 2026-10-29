@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thread — Null.chat</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="/">Null.chat</a></h1>
+    <div class="subtitle">anônimo de verdade. sem cadastro, sem rastreio.</div>
+  </header>
+
+  <div id="mainPostContainer"><p class="empty">Carregando...</p></div>
+  <div id="repliesContainer"></div>
+
+  <form class="post-form" id="postForm" enctype="multipart/form-data">
+    <table>
+      <tr><td class="label">Nome</td><td><span style="color:var(--name); font-weight:bold;">Anon_0x00</span></td></tr>
+      <tr><td class="label">Comentário</td><td><textarea name="content" placeholder="Responder a esta thread..."></textarea></td></tr>
+      <tr><td class="label">Arquivo</td><td><input type="file" name="media" id="mediaInput" accept="image/*,video/*"></td></tr>
+      <tr><td></td><td class="actions">
+        <label style="font-size:12px; margin-right:15px; cursor:pointer;"><input type="checkbox" name="sage"> Sage (não bumpar)</label>
+        <button type="submit" id="submitBtn">Responder</button>
+      </td></tr>
+    </table>
+  </form>
+
+  <footer>
+    Null.chat &middot; sem cadastro &middot; sem rastreio &middot;
+    <span id="adminControls" style="display:none; margin-left: 10px; color: red;">
+      &middot; <a href="#" id="logoutBtn" style="color:red;">[Sair do Admin]</a>
+    </span>
+    <a href="#" id="loginBtn" style="color: #ccc; font-size: 10px; margin-left: 5px;">*</a>
+  </footer>
+
+  <button id="darkModeBtn" class="dark-mode-toggle">🌙</button>
+
+  <script src="/js/thread.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+# 1. SEGREDOS E DADOS SENSÍVEIS (CRÍTICO)
+
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Uploads de usuários e backups
+uploads/
+backups/
+*.sql
+*.dump
+*.zip
+
+# 2. DEPENDÊNCIAS (NODE.JS)
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 3. LOGS E CACHE
+
+logs/
+*.log
+.npm/
+.pm2/
+.pm2-log/
+.cache/
+.temp/
+.tmp/
+
+
+# 4. SISTEMA OPERACIONAL (LINUX/MAC/WINDOWS)
+
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo
+*.rpm
+
+# 5. EDITORES DE CÓDIGO
+
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+package-lock.json

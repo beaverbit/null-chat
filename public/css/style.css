@@ -1,0 +1,125 @@
+:root {
+  --bg: #eef2ff;
+  --bg-post: #d6daf0;
+  --bg-reply: #eef2ff;
+  --border: #b7c5d9;
+  --text: #000;
+  --text-muted: #555;
+  --name: #117743;
+  --link: #34345c;
+  --quote: #789922;
+  --title: #af0a0f;
+}
+
+body.dark-mode {
+  --bg: #1a1a1a;
+  --bg-post: #2a2a2a;
+  --bg-reply: #222222;
+  --border: #444;
+  --text: #ddd;
+  --text-muted: #aaa;
+  --name: #5cbf7a;
+  --link: #8ab4f8;
+  --quote: #a8c97c;
+  --title: #ff6b6b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  padding: 10px;
+  line-height: 1.5;
+  transition: background 0.3s, color 0.3s;
+}
+
+a { color: var(--link); text-decoration: none; }
+a:hover { color: #d00; }
+
+header { text-align: center; margin-bottom: 15px; }
+header h1 { font-family: Tahoma, sans-serif; font-size: 32px; color: var(--title); letter-spacing: -1.5px; }
+header h1 a { color: var(--title); }
+header .subtitle { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+
+/* Contador no Header */
+.stats-bar { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: monospace; }
+
+.board-nav { text-align: center; margin-bottom: 15px; font-size: 13px; color: var(--text-muted); font-weight: bold; }
+.board-nav a { margin: 0 8px; padding: 2px 4px; }
+.board-nav a.active { text-decoration: underline; color: var(--text); }
+
+.post-form { background: var(--bg-post); border: 1px solid var(--border); padding: 8px; margin-bottom: 20px; border-radius: 4px; }
+.post-form table { width: 100%; border-collapse: collapse; }
+.post-form td { padding: 4px; vertical-align: top; }
+.post-form td.label { text-align: right; width: 100px; font-weight: bold; color: var(--text-muted); padding-right: 10px; }
+.post-form textarea { width: 100%; min-height: 90px; resize: vertical; font-family: inherit; font-size: 14px; padding: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 3px; }
+.post-form input[type="file"] { font-size: 13px; color: var(--text); }
+.post-form .actions { text-align: center; padding-top: 8px; }
+.post-form button { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 16px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 3px; transition: background 0.2s; }
+.post-form button:hover { background: var(--border); }
+.post-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.thread { background: var(--bg-post); border: 1px solid var(--border); padding: 8px; margin-bottom: 12px; display: table; width: 100%; border-radius: 4px; }
+.thread .media { display: table-cell; vertical-align: top; padding-right: 12px; width: 170px; }
+.thread .media img, .thread .media video { max-width: 160px; max-height: 160px; border: 1px solid var(--border); border-radius: 3px; background: #fff; object-fit: cover; }
+.thread .content { display: table-cell; vertical-align: top; }
+
+.reply { background: var(--bg-reply); border: 1px solid var(--border); padding: 8px; margin-bottom: 8px; margin-left: 20px; display: table; width: calc(100% - 20px); border-radius: 4px; }
+.reply .media { width: 110px; }
+.reply .media img, .reply .media video { max-width: 100px; max-height: 100px; }
+
+.post-header { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.post-header .name { color: var(--name); font-weight: bold; }
+.post-header .anon-id { color: var(--text); background: var(--bg); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+.post-header .date { color: var(--text-muted); margin-left: 8px; }
+
+.post-body { font-size: 14px; word-wrap: break-word; white-space: pre-wrap; margin-bottom: 6px; color: var(--text); }
+.post-body .quote { color: var(--quote); font-weight: bold; }
+.post-body a.post-ref { color: var(--quote); text-decoration: underline; cursor: pointer; }
+
+.reply-count { font-size: 12px; margin-top: 6px; }
+.reply-count a { color: var(--link); font-weight: bold; text-decoration: underline; }
+
+.pagination { text-align: center; margin: 20px 0; font-size: 14px; font-weight: bold; background: var(--bg-post); padding: 10px; border-radius: 4px; border: 1px solid var(--border); }
+.pagination-top { margin-top: 0; margin-bottom: 15px; }
+.pagination a { margin: 0 5px; padding: 6px 12px; border: 1px solid var(--border); background: var(--bg); border-radius: 3px; color: var(--text); }
+.pagination a:hover { background: var(--border); }
+.pagination span { margin: 0 10px; color: var(--text-muted); }
+
+.empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 15px; }
+footer { text-align: center; margin-top: 30px; font-size: 12px; color: var(--text-muted); padding-bottom: 20px; }
+footer a { font-weight: bold; }
+
+video::-webkit-media-controls-overflow-button { display: none !important; }
+video::-moz-media-controls-overflow-button { display: none !important; }
+
+.post-ref { position: relative; color: var(--quote); text-decoration: underline; cursor: pointer; }
+.citation-preview { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: var(--bg-post); border: 1px solid var(--border); padding: 8px 10px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); width: 320px; max-width: 90vw; z-index: 9999; pointer-events: none; font-size: 13px; white-space: normal; color: var(--text); text-align: left; }
+.citation-preview::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: var(--bg-post) transparent transparent transparent; }
+
+@media (max-width: 600px) {
+  .thread, .reply { display: block; }
+  .thread .media, .reply .media { display: block; width: 100%; text-align: center; padding: 0 0 10px 0; }
+  .thread .content, .reply .content { display: block; }
+  .post-form td.label { width: auto; text-align: left; padding-bottom: 2px; }
+  .post-form table, .post-form tbody, .post-form tr, .post-form td { display: block; }
+}
+
+.dark-mode-toggle {
+  position: fixed;
+  bottom: 15px;
+  right: 15px;
+  background: var(--bg-post);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 16px;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+.dark-mode-toggle:hover { background: var(--border); }

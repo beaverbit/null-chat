@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Null.chat — /b/</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1><a href="/">Null.chat</a></h1>
+    <div class="subtitle">anônimo de verdade. sem cadastro, sem rastreio.</div>
+    <div class="stats-bar" id="statsBar">Posts: -- | Threads: --</div>
+  </header>
+  
+  <nav class="board-nav">
+    <a href="#" data-board="b">/b/</a> |
+    <a href="#" data-board="g">/g/</a> |
+    <a href="#" data-board="a">/a/</a> |
+    <a href="#" data-board="v">/v/</a> |
+    <a href="#" data-board="pol">/pol/</a>
+  </nav>
+
+  <!-- Painel de Reports (só aparece pro Admin) -->
+  <div id="reportsPanel" style="display:none; background: var(--bg-post); border: 1px solid var(--border); border-radius: 4px; padding: 10px; margin-bottom: 15px;">
+    <h3 style="margin-bottom: 8px; color: #d00;">Denúncias Pendentes</h3>
+    <div id="reportsContainer">Carregando...</div>
+  </div>
+
+  <form class="post-form" id="postForm" enctype="multipart/form-data">
+    <table>
+      <tr><td class="label">Nome</td><td><span style="color:var(--name); font-weight:bold;">Anon_0x00</span></td></tr>
+      <tr><td class="label">Comentário</td><td><textarea name="content" placeholder="Escreva algo... use >>123 para citar"></textarea></td></tr>
+      <tr><td class="label">Arquivo</td><td><input type="file" name="media" id="mediaInput" accept="image/*,video/*"></td></tr>
+      <tr><td></td><td class="actions"><button type="submit" id="submitBtn">Postar</button></td></tr>
+    </table>
+  </form>
+
+  <div class="pagination pagination-top" id="pagination-top"></div>
+  <main id="threads"><p class="empty">Carregando...</p></main>
+  <div class="pagination" id="pagination"></div>
+  
+  <footer>
+    Null.chat &middot; sem cadastro &middot; sem rastreio &middot; 
+    <a href="#" id="refreshBtn">[Atualizar]</a>
+    <span id="adminControls" style="display:none; margin-left: 10px; color: red;">
+      &middot; <a href="#" id="logoutBtn" style="color:red;">[Sair do Admin]</a>
+    </span>
+    <a href="#" id="loginBtn" style="color: #ccc; font-size: 10px; margin-left: 5px;">*</a>
+  </footer>
+
+  <button id="darkModeBtn" class="dark-mode-toggle">🌙</button>
+
+  <script src="/js/index.js"></script>
+</body>
+</html>

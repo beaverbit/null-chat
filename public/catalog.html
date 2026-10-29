@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo — Null.chat</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+    .catalog-item { background: var(--bg-post); border: 1px solid var(--border); border-radius: 4px; padding: 5px; text-align: center; cursor: pointer; transition: transform 0.1s; overflow: hidden; }
+    .catalog-item:hover { transform: scale(1.02); border-color: var(--text-muted); }
+    .catalog-item img, .catalog-item video { width: 100%; height: 120px; object-fit: cover; border-radius: 2px; background: #fff; }
+    .catalog-stats { font-size: 11px; color: var(--text-muted); margin-top: 5px; font-weight: bold; }
+    .catalog-actions { text-align: center; margin: 15px 0; }
+    .catalog-actions a { font-weight: bold; margin: 0 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="/">Null.chat</a></h1>
+    <div class="subtitle">catálogo de threads. anônimo de verdade.</div>
+  </header>
+  
+  <nav class="board-nav">
+    <a href="#" data-board="b">/b/</a> |
+    <a href="#" data-board="g">/g/</a> |
+    <a href="#" data-board="a">/a/</a> |
+    <a href="#" data-board="v">/v/</a> |
+    <a href="#" data-board="pol">/pol/</a>
+  </nav>
+
+  <div class="catalog-actions">
+    <a href="/" id="backToBoard">&larr; Voltar para o Board (Modo Texto)</a>
+    <a href="#" id="refreshBtn">[Atualizar Catálogo]</a>
+  </div>
+
+  <div class="pagination pagination-top" id="pagination-top"></div>
+
+  <main class="catalog-grid" id="catalog">
+    <p class="empty" style="grid-column: 1 / -1;">Carregando...</p>
+  </main>
+  
+  <div class="pagination" id="pagination"></div>
+
+  <footer>Null.chat &middot; sem cadastro &middot; sem rastreio</footer>
+
+  <script src="/js/catalog.js"></script>
+</body>
+</html>
