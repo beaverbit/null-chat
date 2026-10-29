@@ -30,11 +30,27 @@ function isAdmin() {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
+
+// --- FUNÇÃO CORRIGIDA AQUI ---
 function renderContent(text) {
   let html = escapeHtml(text);
+  
+  // 1. Aplica o greentext (verde) apenas em linhas que começam com > (e não >>)
+  html = html.split('\n').map(line => {
+    if (line.startsWith('&gt;') && !line.startsWith('&gt;&gt;')) {
+      return `<span class="quote">${line}</span>`;
+    }
+    return line;
+  }).join('\n');
+
+  // 2. Depois de aplicar o verde, transforma os >>123 em links.
+  // O '&gt;' no regex garante que ele só pega a versão escapada.
   html = html.replace(/&gt;&gt;(\d+)/g, '<a href="#post-$1" class="post-ref" data-id="$1">&gt;&gt;$1</a>');
-  return html.split('\n').map(line => line.startsWith('&gt;') && !line.startsWith('&gt;&gt;') ? `<span class="quote">${line}</span>` : line).join('\n');
+
+  return html;
 }
+// -----------------------------
+
 function formatDate(iso) {
   const d = new Date(iso); const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
