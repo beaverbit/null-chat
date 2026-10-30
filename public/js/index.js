@@ -24,33 +24,18 @@ function removeMyToken(id) {
   const t = getMyTokens(); delete t[id]; localStorage.setItem('myPosts', JSON.stringify(t));
 }
 function isAdmin() {
-  return localStorage.getItem('adminPass') !== null;
+  // Mudança: usa sessionStorage em vez de localStorage
+  return sessionStorage.getItem('adminPass') !== null;
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
-
-// --- FUNÇÃO CORRIGIDA AQUI ---
 function renderContent(text) {
   let html = escapeHtml(text);
-  
-  // 1. Aplica o greentext (verde) apenas em linhas que começam com > (e não >>)
-  html = html.split('\n').map(line => {
-    if (line.startsWith('&gt;') && !line.startsWith('&gt;&gt;')) {
-      return `<span class="quote">${line}</span>`;
-    }
-    return line;
-  }).join('\n');
-
-  // 2. Depois de aplicar o verde, transforma os >>123 em links.
-  // O '&gt;' no regex garante que ele só pega a versão escapada.
   html = html.replace(/&gt;&gt;(\d+)/g, '<a href="#post-$1" class="post-ref" data-id="$1">&gt;&gt;$1</a>');
-
-  return html;
+  return html.split('\n').map(line => line.startsWith('&gt;') && !line.startsWith('&gt;&gt;') ? `<span class="quote">${line}</span>` : line).join('\n');
 }
-// -----------------------------
-
 function formatDate(iso) {
   const d = new Date(iso); const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -63,7 +48,6 @@ function renderMedia(p) {
   return `<div class="media"><img src="${escapeHtml(p.mediaUrl)}" alt="mídia" loading="lazy"></div>`;
 }
 
-// --- Quick Reply ---
 function toggleQuickReply(id) {
   const container = document.getElementById(`quick-reply-${id}`);
   if (container.style.display === 'none') {
@@ -100,11 +84,9 @@ async function submitQuickReply(event, id) {
   }
 }
 
-// --- Report ---
 async function reportPost(id) {
   const reason = prompt('Motivo da denúncia (opcional):', 'Conteúdo impróprio');
-  if (reason === null) return; // Cancelou
-  
+  if (reason === null) return;
   try {
     const res = await fetch(`/api/posts/${id}/report`, {
       method: 'POST',
@@ -113,28 +95,23 @@ async function reportPost(id) {
     });
     if (!res.ok) throw new Error('Erro ao denunciar');
     alert('Denúncia registrada. Obrigado!');
-  } catch (err) {
-    alert(err.message);
-  }
+  } catch (err) { alert(err.message); }
 }
 
 async function loadReports() {
-  const adminPass = localStorage.getItem('adminPass');
+  // Mudança: usa sessionStorage em vez de localStorage
+  const adminPass = sessionStorage.getItem('adminPass');
   if (!adminPass) return;
 
   try {
-    const res = await fetch('/api/reports', {
-      headers: { 'x-admin-password': adminPass }
-    });
+    const res = await fetch('/api/reports', { headers: { 'x-admin-password': adminPass } });
     if (!res.ok) return;
     const reports = await res.json();
-    
     const container = document.getElementById('reportsContainer');
     if (!reports.length) {
       container.innerHTML = '<p style="text-align:center;color:var(--text-muted);">Nenhuma denúncia pendente.</p>';
       return;
     }
-
     container.innerHTML = reports.map(r => `
       <div style="border-bottom:1px solid var(--border); padding:6px 0;">
         <strong>Post #${r.anon_id}</strong> - Motivo: ${escapeHtml(r.reason)}<br>
@@ -143,12 +120,9 @@ async function loadReports() {
         <a href="#" onclick="deletePost(${r.post_id}); return false;">Apagar Post</a>
       </div>
     `).join('');
-  } catch (err) {
-    console.error(err);
-  }
+  } catch (err) { console.error(err); }
 }
 
-// --- Renderização ---
 function buildPaginationHTML() {
   if (currentPage === 1) return `<a href="#" onclick="changePage(2); return false;">[ Próxima Página &rarr; ]</a>`;
   return `
@@ -243,7 +217,8 @@ function changePage(page) {
 
 async function deletePost(id) {
   if (!confirm('Tem certeza que deseja apagar este post?')) return;
-  const token = getMyTokens()[id] || localStorage.getItem('adminPass');
+  // Mudança: usa sessionStorage em vez de localStorage
+  const token = getMyTokens()[id] || sessionStorage.getItem('adminPass');
   try {
     const res = await fetch(`/api/posts/${id}`, { method: 'DELETE', headers: { 'x-delete-token': token } });
     if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Erro ao apagar'); }
@@ -252,7 +227,6 @@ async function deletePost(id) {
   } catch (err) { alert(err.message); }
 }
 
-// --- Eventos ---
 document.getElementById('mediaInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -292,7 +266,8 @@ document.getElementById('loginBtn').addEventListener('click', (e) => {
   e.preventDefault();
   const pass = prompt('Digite a Senha Master (Admin):');
   if (pass) {
-    localStorage.setItem('adminPass', pass);
+    // Mudança: usa sessionStorage em vez de localStorage
+    sessionStorage.setItem('adminPass', pass);
     document.getElementById('loginBtn').style.display = 'none';
     document.getElementById('adminControls').style.display = 'inline';
     document.getElementById('reportsPanel').style.display = 'block';
@@ -302,7 +277,8 @@ document.getElementById('loginBtn').addEventListener('click', (e) => {
 
 document.getElementById('logoutBtn').addEventListener('click', (e) => {
   e.preventDefault();
-  localStorage.removeItem('adminPass');
+  // Mudança: usa sessionStorage em vez de localStorage
+  sessionStorage.removeItem('adminPass');
   document.getElementById('loginBtn').style.display = 'inline';
   document.getElementById('adminControls').style.display = 'none';
   document.getElementById('reportsPanel').style.display = 'none';
@@ -318,7 +294,6 @@ document.getElementById('darkModeBtn').addEventListener('click', () => {
   applyTheme();
 });
 
-// Atalho R
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'r' || e.key === 'R') {
@@ -333,7 +308,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Adiciona link do catálogo se não existir
 const footer = document.querySelector('footer');
 if (footer && !document.getElementById('catalogLink')) {
   const catalogLink = document.createElement('a');
