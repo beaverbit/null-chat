@@ -9,12 +9,30 @@ const sanitizeHtml = require('sanitize-html');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const sharp = require('sharp');
+const FileType = require('file-type'); // NOVA DEPENDÊNCIA
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_SIZE = (parseInt(process.env.MAX_FILE_SIZE_MB) || 20) * 1024 * 1024;
 
-app.use(helmet({ contentSecurityPolicy: false }));
+// --- SEGURANÇA: Helmet com CSP Restritivo ---
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline necessário pros scripts do index.html
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      mediaSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Necessário para alguns vídeos funcionarem
+}));
+
 app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -23,7 +41,10 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
-const ALLOWED_MIMES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm']);
+const ALLOWED_MIMES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/webm', 'application/pdf', 'application/octet-stream'
+]);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
@@ -38,8 +59,10 @@ const upload = multer({
   storage,
   limits: { fileSize: MAX_SIZE },
   fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIMES.has(file.mimetype)) return cb(null, true);
-    cb(new Error('Tipo de arquivo não permitido. Apenas imagens e vídeos.'));
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype === 'application/pdf' || file.mimetype === 'application/octet-stream') {
+      return cb(null, true);
+    }
+    cb(new Error('Tipo de arquivo não permitido. Apenas imagens, vídeos e PDFs.'));
   }
 });
 
@@ -50,9 +73,19 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
   }
 }));
 
+// Rate limit geral para posts
 const postLimiter = rateLimit({
   windowMs: 60 * 1000, max: 15,
   message: { error: 'Calma aí, muito post em pouco tempo.' }
+});
+
+// NOVO: Rate limit rígido para o Admin (anti força bruta)
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // Máximo de 10 tentativas
+  message: { error: 'Muitas tentativas de admin. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 function anonIdFromId(id) {
@@ -78,6 +111,8 @@ function deleteFileSafe(filename) {
   const filePath = path.join(UPLOAD_DIR, filename);
   fs.unlink(filePath, (err) => { if (err) console.error(`Erro ao deletar: ${filename}`); });
 }
+
+// --- Rotas ---
 
 app.get('/api/boards/:board', async (req, res) => {
   const board = req.params.board.slice(0, 16);
@@ -120,31 +155,50 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
   const isSage = req.body.sage === 'true';
   
   let content = sanitizeHtml(rawContent, { allowedTags: [], allowedAttributes: {} });
-
-  // --- CORREÇÃO AQUI ---
-  // Desfaz o escape de >, < e & que o navegador manda às vezes
   content = content.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
-  // ---------------------
 
   if (!content.trim() && !req.file) return res.status(400).json({ error: 'Post vazio' });
 
-  if (req.file && req.file.mimetype.startsWith('image/') && req.file.mimetype !== 'image/gif') {
+  let mediaType = null;
+  
+  if (req.file) {
+    // NOVO: Validação de Magic Bytes (segurança contra arquivos renomeados)
     try {
       const filePath = path.join(UPLOAD_DIR, req.file.filename);
-      const optimizedPath = path.join(UPLOAD_DIR, `opt_${req.file.filename}.webp`);
+      const fileBuffer = fs.readFileSync(filePath);
+      const type = await FileType.fromBuffer(fileBuffer);
       
-      await sharp(filePath)
-        .resize({ width: 1200, withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toFile(optimizedPath);
+      const isImage = type && type.mime.startsWith('image/');
+      const isVideo = type && type.mime.startsWith('video/');
+      const isPdf = type && type.mime === 'application/pdf';
 
-      deleteFileSafe(req.file.filename);
-      
-      req.file.filename = `opt_${req.file.filename}.webp`;
-      req.file.mimetype = 'image/webp';
+      if (!isImage && !isVideo && !isPdf) {
+        deleteFileSafe(req.file.filename);
+        return res.status(400).json({ error: 'Arquivo inválido ou corrompido.' });
+      }
+
+      if (isImage) {
+        // Otimização com Sharp
+        const optimizedPath = path.join(UPLOAD_DIR, `opt_${req.file.filename}.webp`);
+        await sharp(filePath)
+          .resize({ width: 1200, withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toFile(optimizedPath);
+
+        deleteFileSafe(req.file.filename);
+        req.file.filename = `opt_${req.file.filename}.webp`;
+        req.file.mimetype = 'image/webp';
+        mediaType = 'image';
+      } else if (isVideo) {
+        mediaType = 'video';
+      } else if (isPdf) {
+        mediaType = 'pdf';
+      }
+
     } catch (err) {
+      console.error(err);
       deleteFileSafe(req.file.filename);
-      return res.status(400).json({ error: 'Arquivo de imagem inválido ou corrompido.' });
+      return res.status(400).json({ error: 'Erro ao processar o arquivo.' });
     }
   }
 
@@ -157,13 +211,6 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
   }
 
   const mediaPath = req.file ? req.file.filename : null;
-  let mediaType = null;
-  if (req.file) {
-    if (req.file.mimetype.startsWith('video/')) mediaType = 'video';
-    else if (req.file.mimetype === 'application/pdf') mediaType = 'pdf';
-    else mediaType = 'image';
-  }
-  
   const deleteToken = crypto.randomUUID();
 
   try {
@@ -189,7 +236,7 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
   }
 });
 
-app.delete('/api/posts/:id', async (req, res) => {
+app.delete('/api/posts/:id', adminLimiter, async (req, res) => {
   const token = req.headers['x-delete-token'];
   if (!token) return res.status(401).json({ error: 'Token de exclusão ausente.' });
 
@@ -237,9 +284,13 @@ app.post('/api/posts/:id/report', reportLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/reports', async (req, res) => {
+app.get('/api/reports', adminLimiter, async (req, res) => {
   const adminPass = req.headers['x-admin-password'];
-  if (adminPass !== process.env.ADMIN_PASSWORD) return res.status(401).json({ error: 'Não autorizado.' });
+  if (adminPass !== process.env.ADMIN_PASSWORD) {
+    // Log simples de tentativa falha (A09 do OWASP)
+    console.warn(`[SECURITY] Tentativa de acesso admin falhou. IP não logado por privacidade.`);
+    return res.status(401).json({ error: 'Não autorizado.' });
+  }
 
   try {
     const { rows } = await pool.query(`
