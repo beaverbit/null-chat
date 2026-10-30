@@ -44,7 +44,6 @@ header h1 { font-family: Tahoma, sans-serif; font-size: 32px; color: var(--title
 header h1 a { color: var(--title); }
 header .subtitle { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
 
-/* Contador no Header */
 .stats-bar { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: monospace; }
 
 .board-nav { text-align: center; margin-bottom: 15px; font-size: 13px; color: var(--text-muted); font-weight: bold; }
@@ -123,3 +122,60 @@ video::-moz-media-controls-overflow-button { display: none !important; }
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 .dark-mode-toggle:hover { background: var(--border); }
+
+/* =========================================
+   CAIXA "O QUE É O NULL.CHAT?" (Fixa)
+   ========================================= */
+.about-box {
+  background: #f0e0d6;
+  border: 1px solid #d9bfb7;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 20px;
+  font-family: arial, helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #800000;
+}
+
+.about-header {
+  background: #af0a0f;
+  color: white;
+  padding: 4px 8px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.about-header h3 {
+  font-size: 14px;
+  margin: 0;
+  font-family: Tahoma, sans-serif;
+  color: white;
+}
+
+.about-content {
+  padding: 10px;
+}
+.about-content p { margin-bottom: 10px; }
+.about-content p:last-child { margin-bottom: 0; }
+
+.about-content code {
+  background: rgba(0,0,0,0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+/* Ajuste da caixa no Dark Mode */
+body.dark-mode .about-box {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #ddd;
+}
+body.dark-mode .about-header {
+  background: #555;
+}
+body.dark-mode .about-header h3 { color: white; }
+body.dark-mode .about-content code {
+  background: rgba(255,255,255,0.1);
+}
