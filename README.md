@@ -1,4 +1,4 @@
-# <a href="https://nullchat.com.br/"> Null.chat</a>
+# Null.chat
 
 Rede social anônima inspirada no 4chan. Sem cadastro, sem rastreio de IP, sem frescura.
 
