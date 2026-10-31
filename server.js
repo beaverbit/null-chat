@@ -11,17 +11,18 @@ const helmet = require('helmet');
 const sharp = require('sharp');
 const FileType = require('file-type');
 
-// 1. Verificação de segurança: não sobe sem senha de admin
-if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 8) {
-  console.error('ERRO FATAL: ADMIN_PASSWORD não definida ou muito curta no .env');
+if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 20) {
+  console.error('ERRO FATAL: ADMIN_PASSWORD não definida ou muito curta (mínimo 20 caracteres).');
   process.exit(1);
 }
+
+// NOVO: Whitelist de boards
+const BOARDS = new Set(['b', 'g', 'a', 'v', 'pol']);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_SIZE = (parseInt(process.env.MAX_FILE_SIZE_MB) || 20) * 1024 * 1024;
 
-// 2. Trust Proxy (Cloudflare)
 app.set('trust proxy', 1);
 
 app.use(helmet({
@@ -49,17 +50,27 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
+// NOVO: Tipos de arquivo exatos (sem PDF, sem MKV, etc)
+const IMG = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const VID = new Set(['video/mp4', 'video/webm']);
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
-    // 3. Nome temporário, a extensão final será definida depois pelo file-type
     cb(null, crypto.randomUUID() + '.tmp');
   }
 });
 
+// NOVO: Limites do multer (files, fields, parts)
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_SIZE }
+  limits: { 
+    fileSize: MAX_SIZE,
+    files: 1,
+    fields: 5,
+    parts: 7,
+    fieldSize: 10000
+  }
 });
 
 app.use('/uploads', express.static(UPLOAD_DIR, {
@@ -69,17 +80,16 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
   }
 }));
 
-// 4. Rate Limits corrigidos
 const postLimiter = rateLimit({
   windowMs: 60 * 1000, max: 15,
   message: { error: 'Calma aí, muito post em pouco tempo.' },
-  keyGenerator: (req) => req.ip // O trust proxy já resolve o IP real
+  keyGenerator: (req) => req.ip
 });
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  skipSuccessfulRequests: true, // Só conta as falhas
+  skipSuccessfulRequests: true,
   message: { error: 'Muitas tentativas de admin. Tente novamente em 15 minutos.' },
   keyGenerator: (req) => req.ip
 });
@@ -87,6 +97,10 @@ const adminLimiter = rateLimit({
 function anonIdFromId(id) {
   return crypto.createHash('sha256').update(String(id)).digest('hex').slice(0, 6);
 }
+
+// NOVO: Funções de comparação segura (timing safe)
+const sha = s => crypto.createHash('sha256').update(String(s)).digest();
+const safeEq = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
 
 function serializePost(row) {
   return {
@@ -106,8 +120,9 @@ function deleteFileSafe(filename) {
 // --- Rotas ---
 
 app.get('/api/boards/:board', async (req, res) => {
-  const board = req.params.board.slice(0, 16);
-  // 5. Validação de página para não estourar o banco
+  const board = req.params.board;
+  if (!BOARDS.has(board)) return res.status(404).json({ error: 'Board inválido' });
+  
   let page = parseInt(req.query.page, 10);
   if (!Number.isInteger(page) || page < 1) page = 1;
   if (page > 1000) page = 1000;
@@ -142,15 +157,30 @@ app.get('/api/posts/:id', async (req, res) => {
 });
 
 app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, res) => {
+  let newPath = null;
   try {
-    const board = req.params.board.slice(0, 16);
+    let board = req.params.board;
+    if (!BOARDS.has(board)) {
+      if (req.file) deleteFileSafe(req.file.filename);
+      return res.status(404).json({ error: 'Board inválido.' });
+    }
+
     const rawContent = (req.body.content || '').toString().slice(0, 5000);
-    // 6. Validação do replyTo (evita crash no Postgres)
     let replyTo = parseInt(req.body.replyTo, 10);
     if (!Number.isInteger(replyTo) || replyTo > 2147483647) replyTo = null;
 
+    // NOVO: Só permite responder a um Post Principal (OP), herdando o board dele
+    if (replyTo) {
+      const { rows: parent } = await pool.query(
+        'SELECT board FROM posts WHERE id = $1 AND reply_to IS NULL', [replyTo]);
+      if (!parent.length) {
+        if (req.file) deleteFileSafe(req.file.filename);
+        return res.status(400).json({ error: 'O post original não existe ou não é um post principal.' });
+      }
+      board = parent[0].board;
+    }
+
     const isSage = req.body.sage === 'true';
-    
     let content = sanitizeHtml(rawContent, { allowedTags: [], allowedAttributes: {} });
     content = content.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
 
@@ -160,48 +190,47 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
 
     if (req.file) {
       const filePath = path.join(UPLOAD_DIR, req.file.filename);
-      const fileBuffer = fs.readFileSync(filePath);
-      const type = await FileType.fromBuffer(fileBuffer);
+      const type = await FileType.fromFile(filePath);
       
-      const isImage = type && type.mime.startsWith('image/');
-      const isVideo = type && type.mime.startsWith('video/');
-      const isPdf = type && type.mime === 'application/pdf';
+      const isImage = !!type && IMG.has(type.mime);
+      const isVideo = !!type && VID.has(type.mime);
 
-      if (!isImage && !isVideo && !isPdf) {
+      if (!isImage && !isVideo) {
         deleteFileSafe(req.file.filename);
-        return res.status(400).json({ error: 'Arquivo inválido ou corrompido.' });
+        return res.status(400).json({ error: 'Arquivo inválido. Envie imagens (JPG, PNG, GIF, WebP) ou vídeos (MP4, WebM).' });
       }
 
-      const newFilename = crypto.randomUUID() + '.' + type.ext;
-      const newPath = path.join(UPLOAD_DIR, newFilename);
+      const finalExt = isImage ? 'webp' : type.ext;
+      const newFilename = crypto.randomUUID() + '.' + finalExt;
+      newPath = path.join(UPLOAD_DIR, newFilename);
 
       if (isImage) {
-        await sharp(filePath).resize({ width: 1200, withoutEnlargement: true }).webp({ quality: 80 }).toFile(newPath);
+        // NOVO: sharp.concurrency(1) para não travar o celular
+        sharp.concurrency(1); 
+        await sharp(filePath, { limitInputPixels: 40e6 })
+          .rotate()
+          .resize({ width: 1200, withoutEnlargement: true })
+          .webp({ quality: 80, effort: 4 })
+          .toFile(newPath);
         deleteFileSafe(req.file.filename);
         req.file.filename = newFilename;
         mediaType = 'image';
       } else {
         fs.renameSync(filePath, newPath);
         req.file.filename = newFilename;
-        mediaType = isVideo ? 'video' : 'pdf';
-      }
-    }
-
-    if (replyTo) {
-      const { rowCount } = await pool.query('SELECT 1 FROM posts WHERE id = $1', [replyTo]);
-      if (rowCount === 0) {
-        if (req.file) deleteFileSafe(req.file.filename);
-        return res.status(400).json({ error: 'O post original não existe.' });
+        mediaType = 'video';
       }
     }
 
     const mediaPath = req.file ? req.file.filename : null;
     const deleteToken = crypto.randomUUID();
+    // NOVO: Guarda o hash do token no banco, não o token puro
+    const deleteTokenHash = sha(deleteToken).toString('hex');
 
     const { rows } = await pool.query(
       `INSERT INTO posts (board, content, media_path, media_type, reply_to, anon_id, bumped_at, delete_token, sage)
        VALUES ($1, $2, $3, $4, $5, 'pending', NOW(), $6, $7) RETURNING id`,
-      [board, content, mediaPath, mediaType, replyTo, deleteToken, isSage]
+      [board, content, mediaPath, mediaType, replyTo, deleteTokenHash, isSage]
     );
     const id = rows[0].id;
     const anonId = anonIdFromId(id);
@@ -216,7 +245,8 @@ app.post('/api/boards/:board', postLimiter, upload.single('media'), async (req, 
   } catch (err) {
     console.error(err);
     if (req.file) deleteFileSafe(req.file.filename);
-    res.status(500).json({ error: 'Erro ao criar post' });
+    if (newPath) deleteFileSafe(path.basename(newPath)); // NOVO: limpa arquivo parcial
+    res.status(500).json({ error: 'Erro interno ao criar post' });
   }
 });
 
@@ -231,16 +261,23 @@ app.delete('/api/posts/:id', adminLimiter, async (req, res) => {
     const { rows } = await pool.query('SELECT media_path, delete_token FROM posts WHERE id = $1', [id]);
     if (!rows.length) return res.status(404).json({ error: 'Post não encontrado' });
 
-    const isOwner = rows[0].delete_token === token;
-    const isAdmin = token === process.env.ADMIN_PASSWORD;
+    // NOVO: Comparação segura (timing safe) para o token e senha
+    const isOwner = safeEq(rows[0].delete_token, sha(token).toString('hex'));
+    const isAdmin = safeEq(token, process.env.ADMIN_PASSWORD);
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: 'Você não tem permissão para apagar este post.' });
     }
 
-    const mediaPath = rows[0].media_path;
+    let filesToDelete = [];
+    if (rows[0].media_path) filesToDelete.push(rows[0].media_path);
+
+    const { rows: replies } = await pool.query('SELECT media_path FROM posts WHERE reply_to = $1', [id]);
+    replies.forEach(r => { if (r.media_path) filesToDelete.push(r.media_path); });
+
     await pool.query('DELETE FROM posts WHERE id = $1', [id]);
-    if (mediaPath) deleteFileSafe(mediaPath);
+    filesToDelete.forEach(deleteFileSafe);
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -268,7 +305,8 @@ app.post('/api/posts/:id/report', reportLimiter, async (req, res) => {
 
 app.get('/api/reports', adminLimiter, async (req, res) => {
   const adminPass = req.headers['x-admin-password'];
-  if (adminPass !== process.env.ADMIN_PASSWORD) {
+  // NOVO: Comparação segura
+  if (!adminPass || !safeEq(adminPass, process.env.ADMIN_PASSWORD)) {
     console.warn(`[SECURITY] Tentativa de acesso admin falhou.`);
     return res.status(401).json({ error: 'Não autorizado.' });
   }
@@ -287,12 +325,15 @@ app.get('/api/reports', adminLimiter, async (req, res) => {
   }
 });
 
+// NOVO: Error handler não vaza mais a mensagem interna do erro
 app.use((err, _req, res, _next) => {
   if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: `Arquivo muito grande (max ${MAX_SIZE / (1024*1024)}MB)` });
   }
-  if (err) return res.status(400).json({ error: err.message || 'Erro' });
+  if (err) {
+    console.error(err); // Loga o erro real no console pra você ver
+    return res.status(400).json({ error: 'Erro na requisição.' });
+  }
 });
 
-// 7. Bind na interface local
 app.listen(PORT, '127.0.0.1', () => console.log(`Null.chat rodando em http://localhost:${PORT}`));
